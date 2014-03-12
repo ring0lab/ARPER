@@ -7,7 +7,9 @@ REQUIRED LIBRARIES
 ==================
 
 libcrafter
+
 libpcap >= 0.8 && libpcap0.8-dev 
+
 boost library
 
 ==================
