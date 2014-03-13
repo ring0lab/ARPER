@@ -1,14 +1,27 @@
 /*
-Copyright [c] 2014, Viet Luu 
+ARPER - 
+Copyright [c] 2014, Created by Viet Luu 
 [WEB] HTTP://WWW.RING0LAB.COM
-ALL rights reserved.
+-----------------------------------------------------------------------
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
 /*
 Required Libraries
 libcrafter
 libpcap0.8 and libpcap0.8-dev
-
+boost library
 */
 
 #include <stdio.h>
@@ -28,7 +41,7 @@ libpcap0.8 and libpcap0.8-dev
 using namespace std;
 using namespace Crafter;
 
-// Host Status function
+// Function looks up hosts status
 map<string,string> pair_addr;
 
 void PrintARPInfo(Packet* sniff_packet, void* user) {
@@ -40,6 +53,7 @@ void PrintARPInfo(Packet* sniff_packet, void* user) {
 
 }
 
+// Functions Section -------------------------------------------
 
 void PrintARPInfo(Packet* sniff_packet, void* user);
 bool isNumValid ( char c );
@@ -51,16 +65,19 @@ int rangeFinder(int firstRange, int lastRange);
 bool hostStatus(string targets, char *interface);
 
 char version[] = "1.3.2";
-bool dashFlag = false;
+bool dashFlag = false;  // DashFlag, Alerts when dash appeared in target option : For IP range calcuation purposes.
 
-
+// Main Program -------------------------------------------------
 
 int main (int argc, char *argv[])
 {
+	/* Variables */
 	int c;
 	char *target, *gateway, *interface;
-	bool tflag = false, gflag = false, iflag = false;
-	bool argErr = false;  // check for argument error before activating ARP Engine.
+	bool tflag = false, gflag = false, iflag = false; // Flag variables to tell if options are selected.
+	bool argErr = false;  // Error Flag, argErr must be false for function to be executed.
+
+	// Gets inputs from user
 
 	while ( ( c = getopt(argc, argv, "t:g:i:vh")) != -1 )
 	{
@@ -102,9 +119,9 @@ int main (int argc, char *argv[])
 		}
 	}
 
-	if ( argc <= 1 )
+	if ( argc <= 1 )  // If no option is selected, then helperLite() function will be activated.
 	{
-		helperLite();
+		helperLite(); // Help information
 		exit(1);
 	}
 	if ( argErr )
@@ -135,6 +152,8 @@ int main (int argc, char *argv[])
 	return 0;
 }
 
+/* Validates IP address(s) -------------------------------- */
+
 bool isNumValid ( char c )  // validates arguments
 {
 	if ( ( c >= '0' && c <= '9' ) || ( c == '.' ) || ( c == '-') )
@@ -143,53 +162,63 @@ bool isNumValid ( char c )  // validates arguments
 		return false;
 }
 
+/* Validates IP address(s) -------------------------------- */
+
 bool isValid ( char c[] )  // validates arguments
 {
+	/* dotc    = counts how many dots are in an IP address
+	   nextdot = counts how many dots are next to each other
+	   nextnum = counts how many numbers are next to each other
+	   total   = the length of (data) 
+	   dashCount = counts how many dashes*/
+
 	int dotc = 0, nextdot = 0, nextnum = 0, total = 0, dashCount = 0; // dot counter and total counter
-	int max255 = 0; // if over 255 then is invalid
-	bool flag; // set flag to return signal
+	int max255 = 0; // If over 255 then is invalid
+	bool flag; // Set flag to return signal
 	bool isNextDot = false; // isNextDot means .. is not valid
 	bool Err = false;
 	char lastDash;
 
+	// Validates address(s) --------------------------------
+
 	for ( int i = 0; c[i] != '\0'; ++i )
-		if ( isNumValid (c[i]) )  // validates characters, they must be numbers and dots.  No alphabet or invalid characters.
+		if ( isNumValid (c[i]) )  // Validates characters, they must be numbers and dots. 
 		{
-			if ( c[i] == '.' )  // if character == to dot.
+			if ( c[i] == '.' )  
 			{		
-				if ( !isNextDot )  // dot must not be next to each other.
+				if ( !isNextDot )  // Dots must not be next to each other.
 				{
-					++dotc;  // count how many dots are not next to each other.
-					isNextDot = true;  // set signal already counted
+					++dotc;  
+					isNextDot = true;  // Set signal already counted
 				}
-				else if ( isNextDot )  // if dot is already counted, then nextdot will be counted
+				else if ( isNextDot )  // If dot is already counted, then nextdot will be counted
 				{
-					++nextdot;  // this tells how many dots are next to each other.
+					++nextdot;  // This tells how many dots are next to each other.
 				}
-				nextnum = 0; // reset nextnum number to 0 
-				max255 = 0; // reset back to 0;
+				nextnum = 0; // Reset nextnum number to 0 
+				max255 = 0; // Reset back to 0;
 			}
-			else if ( (c[i] != '.') && (c[i] != '-') ) // if next character is not dot
+			else if ( (c[i] != '.') && (c[i] != '-') ) // If next character is not dot
 				{
-					isNextDot = false;  // reset dot count
-					++nextnum;  // next to number count
+					isNextDot = false;  // Reset dot count
+					++nextnum;  // Next to number count
 					max255 += atoi(&c[i]);
-					if ( max255 >= 318 ) // more than 318 is invalid
+					if ( max255 >= 318 ) // More than 318 is invalid, example : atoi(256) == 318.  
 						Err = true;
 				}
 				if ( nextnum >= 4 ) 
-					Err = true;  // if next number is more than 3 counts, then error
-				else if ( c[i] == '-' ) // if character is dash
+					Err = true;  // If next number is more than 3 counts, then error
+				else if ( c[i] == '-' ) // If character is dash
 					{
 						dashFlag = true;
 						if ( c[i - 1] == '.' ) // If dash next to dot == invalid
 							Err = true;
-						max255 = 0; // reset max255
-						nextnum = 0; // reset next number
-						++dashCount;  // find how many dashes are there
-						if ( dotc != 3 ) // if dash is not behind 3 dots, then error
+						max255 = 0; // Reset max255
+						nextnum = 0; // Reset next number
+						++dashCount;  // Finds how many dashes are there
+						if ( dotc != 3 ) // If dash is not behind 3 dots, then error
 							Err = true;
-						else if ( dashCount > 1 ) // if dash is more than 1 dash then it is error
+						else if ( dashCount > 1 ) // If dash is more than 1 dash then it is error
 							Err = true;
 					}
 				else if ( ( dashCount == 1 ) && ( !isdigit(c[i]) ) )
@@ -197,15 +226,15 @@ bool isValid ( char c[] )  // validates arguments
 			++total;
 			lastDash = c[i];
 		}
-		else if ( !isNumValid (c[i]) )  // if alphabet then set to true for Error
+		else if ( !isNumValid (c[i]) )  // If alphabet then set to true for Error
 			Err = true; 
-
+	// All flags should be within the requirements
 	if ( (total >= 7 && total <= 19) && (dotc == 3) && (nextdot == 0) && (Err == false) && (lastDash != '-') )
-		flag = true; // valid IP Address
+		flag = true; // Valid IP Address
 	else
-		flag = false; // invalid IP Address
+		flag = false; // Invalid IP Address
 
-	//Debugging purposes
+	//Debugging purposes ---------- DO NOT DELETE
 	//printf("%d, %d, %d, %d, %d, %d, %d\n", flag, dotc, total, nextdot, nextnum, max255, dashCount);
 	//printf("%c\n", lastDash);
 
@@ -217,14 +246,15 @@ bool isValid ( char c[] )  // validates arguments
 
 void arpEngine (char *target, char *gateway, char *interface)
 {
-	int lastRangeNumber = 0, lastrangeCount = 0;   // Last range for target hosts
-	int firstRangeNumber = 0, firstrangeCount = 0; // first range for target hosts
-	int dotc = 0; // dot counter
+	int lastRangeNumber = 0, lastrangeCount = 0;   // Last range for target hosts, lastrangeCount is the counter to count character positions after dash.
+	int firstRangeNumber = 0, firstrangeCount = 0; // First range for target hosts, firstrangeCount is the counter to count character positions before dash up to dot.
+	int dotc = 0; // Dot counter
 	int i = 0;
-	int totalLength = 0; // total length till the end of all dots.
-	int rangeLength = 0;
-	bool hoststatus = false;
+	int totalLength = 0; // Total length till the end of all dots.
+	int rangeLength = 0; // Example: 192.168.1.1-10, range should be 10-1 = 9, 
+	bool hoststatus = false; // Host status variable
 
+	// If target variable contains dash, then it considers multiple hosts attack
 
 	if ( dashFlag )
 	{
@@ -235,7 +265,7 @@ void arpEngine (char *target, char *gateway, char *interface)
 				++dotc;
 				if (dotc == 3)
 					{
-						firstRangeNumber = int(target[i+1] - '0');
+						firstRangeNumber = int(target[i+1] - '0'); // Converting character to int
 						for ( int k = i; target[k] != '-'; ++k )
 							++firstrangeCount;
 						firstrangeCount -= 1;
@@ -250,7 +280,7 @@ void arpEngine (char *target, char *gateway, char *interface)
 						}
 					}
 			}
-			else if ( target[i] == '-' ) // startig with dash location
+			else if ( target[i] == '-' ) // Startig with dash location
 				{
 				lastRangeNumber = int(target[i+1] - '0');
 				for ( int j = i; target[j] != '\0'; ++j ) // loop until the end of array
@@ -267,6 +297,7 @@ void arpEngine (char *target, char *gateway, char *interface)
 				}
 
 				}
+		
 		// printf("%d, %d, %d, %d %d\n", firstRangeNumber, lastRangeNumber, lastrangeCount, dotc, firstrangeCount); // for debugging
 
 		if ( firstRangeNumber >= lastRangeNumber )
@@ -290,7 +321,7 @@ void arpEngine (char *target, char *gateway, char *interface)
 			for ( int v = 0; v < rangeLength; ++v )
 			{
 				for ( int z = 0; z < totalLength; ++z )
-					targets[v] += target[z]; // building hosts by looking at the last dot
+					targets[v] += target[z]; // Building hosts by looking at the last dot
 				targets[v] += boost::lexical_cast<std::string>(firstRangeNumber+v); // adding range of numbers to hosts
 				//cout << targets[v] << endl; // for debugging prints hosts
 			}
@@ -301,6 +332,8 @@ void arpEngine (char *target, char *gateway, char *interface)
 			string localMac = GetMyMAC(interface); // Set Mac Address associated to the interface
 
 			string targetMacs[rangeLength];
+
+			// Basic Frames Infomration --------------------------
 
 			Ethernet ether_header[rangeLength];
 			ARP arp_header[rangeLength];
@@ -362,8 +395,8 @@ void arpEngine (char *target, char *gateway, char *interface)
 	}
 	else
 	{
-		// single target host 
-		// printf("no Dash \n");
+		// Single target host ----------------------
+
 		string localIP = GetMyIP(interface); // Set IP Address associated to the interface
 		string localMac = GetMyMAC(interface); // Set Mac Address associated to the interface
 
@@ -414,7 +447,7 @@ void arpEngine (char *target, char *gateway, char *interface)
 
 }
 
-// This converts arrays into one integer
+// This converts array of numbers into integer number, Example: [1][2][3] = 123
 
 int rangeFinder(int firstRange, int lastRange)
 {
@@ -429,6 +462,8 @@ int rangeFinder(int firstRange, int lastRange)
 		return firstRange*10;
 	}
 }
+
+// Function to check for hosts status -----------------------
 
 bool hostStatus(string targets, char *interface)
 {
@@ -468,10 +503,14 @@ bool hostStatus(string targets, char *interface)
 
 }
 
+// ------------ Small Help Function
+
 void helperLite ()
 {
 	printf("\n[!] arper %s copyright [c] 2014 Viet Luu [w] ring0lab.com \n[!] Usage: -t target -g gateway -i interface [-h MORE HELP]\n\n", version);
 }
+
+// ------------ Full Help Function, for better descriptions.
 
 void helperFull ()
 {
