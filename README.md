@@ -14,4 +14,12 @@ boost library
 
 ==================
 
+Installation
+==================
+
+g++ arper.c -o arper -lcrafter -I boost_1* Library
+
+
+==================
+
 Current Version : 1.3.2
